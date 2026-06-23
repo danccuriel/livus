@@ -1,3 +1,4 @@
+// v2 - model: claude-sonnet-4-6
 import { useState, useEffect, useRef, useCallback } from "react";
 
 /* ─── PALETA ─── */
