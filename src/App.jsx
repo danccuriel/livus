@@ -204,12 +204,18 @@ export default function App() {
   // Restore session on mount
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) { setUser(session.user); setScreen("app"); }
+      if (session?.user) {
+        setUser(session.user);
+        // Só redireciona para app se estiver na tela de login/registro
+        setScreen(s => (s === "login" || s === "register") ? "app" : s);
+      } else {
+        setScreen("login");
+      }
       setLoadingSession(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((ev, session) => {
-      if (ev === "SIGNED_IN")  { setUser(session.user); setScreen("app"); }
       if (ev === "SIGNED_OUT") { setUser(null); setScreen("login"); }
+      if (ev === "SIGNED_IN" && !user) { setUser(session.user); setScreen("app"); }
     });
     return () => subscription.unsubscribe();
   }, []);
