@@ -569,12 +569,8 @@ function DashboardScreen({ user, historico, onLogout, onOpenSheet, onResult, onD
 
       {/* ── Content ── */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1.75rem 2rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.125rem" }}>
+        <div style={{ marginBottom: "1.125rem" }}>
           <h2 style={{ fontSize: 18, color: C.ink, fontWeight: 700, letterSpacing: "-0.3px" }}>Histórico de análises</h2>
-          <button onClick={onOpenSheet} style={{ ...G.btn, padding: "9px 18px", fontSize: 13 }}>
-            <Icon d="M12 5v14M5 12h14" sw={2.5} color={C.white} size={14} />
-            Nova análise
-          </button>
         </div>
 
         {/* Search */}
