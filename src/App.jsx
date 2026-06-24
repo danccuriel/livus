@@ -1186,30 +1186,56 @@ function ResultScreen({ entry, onBack, user, onUpdateAnotacao, jspdfReady }) {
           </div>
         </div>
 
-        {/* 2-col: resumo + interpretação */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-          <RCard label="Resumo dos achados" icon="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z">
-            <p style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.65 }}>{r.resumo}</p>
-          </RCard>
-          <RCard label="Interpretação clínica" icon="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z">
-            <p style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.65 }}>{r.interpretacao}</p>
-          </RCard>
+        {/* ── 1. Interpretação clínica (destaque principal) ── */}
+        <div style={{ marginBottom: "1rem" }}>
+          <div style={{
+            background: C.white, border: `2px solid ${C.p200}`,
+            borderRadius: 16, padding: "1.5rem 1.75rem",
+            boxShadow: "0 2px 12px rgba(21,101,192,0.09), 0 6px 32px rgba(21,101,192,0.06)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem" }}>
+              <div style={{ width: 30, height: 30, borderRadius: 9, background: `linear-gradient(135deg, ${C.p500}, ${C.p700})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icon d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" size={14} color={C.white} sw={1.8} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.p500, textTransform: "uppercase", letterSpacing: "0.7px" }}>Interpretação clínica</span>
+            </div>
+            <p style={{ fontSize: 14.5, color: C.ink, lineHeight: 1.75, fontWeight: 400 }}>{r.interpretacao}</p>
+          </div>
         </div>
 
-        {/* Diferenciais */}
+        {/* ── 2. Diagnósticos diferenciais (o porquê da interpretação) ── */}
         <div style={{ marginBottom: "1rem" }}>
           <RCard label="Diagnósticos diferenciais" icon="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11">
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {r.diferenciais?.map(d => (
-                <div key={d.n} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: `linear-gradient(135deg, ${C.p400}, ${C.p600})`, color: C.white, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>{d.n}</div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: C.ink }}>{d.nome}</div>
-                    <div style={{ fontSize: 12.5, color: C.ink4, lineHeight: 1.5, marginTop: 3 }}>{d.just}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+              {r.diferenciais?.map((d, i) => (
+                <div key={d.n} style={{
+                  display: "flex", gap: 14, alignItems: "flex-start",
+                  padding: "0.875rem 1rem",
+                  background: i === 0 ? C.p50 : C.surface,
+                  border: `1.5px solid ${i === 0 ? C.p100 : C.border}`,
+                  borderRadius: 12,
+                }}>
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                    background: i === 0 ? `linear-gradient(135deg, ${C.p500}, ${C.p700})` : i === 1 ? `linear-gradient(135deg, ${C.p300}, ${C.p500})` : C.surface2,
+                    color: i < 2 ? C.white : C.ink4,
+                    fontSize: 11, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
+                  }}>{d.n}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 5 }}>{d.nome}</div>
+                    <div style={{ fontSize: 13, color: C.ink3, lineHeight: 1.6 }}>{d.just}</div>
                   </div>
                 </div>
               ))}
             </div>
+          </RCard>
+        </div>
+
+        {/* ── 3. Resumo dos achados (evidências de suporte) ── */}
+        <div style={{ marginBottom: "1rem" }}>
+          <RCard label="Achados laboratoriais" icon="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z">
+            <p style={{ fontSize: 13.5, color: C.ink2, lineHeight: 1.7 }}>{r.resumo}</p>
           </RCard>
         </div>
 
