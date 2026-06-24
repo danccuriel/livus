@@ -206,9 +206,9 @@ export default function App() {
       if (session?.user) { setUser(session.user); setScreen("app"); }
       setLoadingSession(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_ev, session) => {
-      if (session?.user) { setUser(session.user); setScreen("app"); }
-      else { setUser(null); setScreen("login"); }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((ev, session) => {
+      if (ev === "SIGNED_IN")  { setUser(session.user); setScreen("app"); }
+      if (ev === "SIGNED_OUT") { setUser(null); setScreen("login"); }
     });
     return () => subscription.unsubscribe();
   }, []);
