@@ -136,34 +136,44 @@ const Spin = ({ color = C.p500, size = 18 }) => (
   }} />
 );
 
-/* ─── HOOK: PDF ─── */
-function usePdf() {
-  const [text, setText] = useState("");
-  const [name, setName] = useState("");
-  const [preview, setPreview] = useState("");
+/* ─── HOOK: PDF (multi) ─── */
+async function extractPdfText(file) {
+  const ab = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise;
+  let txt = "";
+  for (let i = 1; i <= Math.min(pdf.numPages, 6); i++) {
+    const pg = await pdf.getPage(i);
+    const c = await pg.getTextContent();
+    txt += c.items.map(s => s.str).join(" ") + "\n";
+  }
+  return txt.trim().slice(0, 6000);
+}
+
+function usePdfs() {
+  const [pdfs, setPdfs] = useState([]); // [{ name, text }]
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async (file) => {
-    if (!file || file.type !== "application/pdf") return;
-    setName(file.name); setLoading(true); setText(""); setPreview("");
-    try {
-      const ab = await file.arrayBuffer();
-      const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise;
-      let txt = "";
-      for (let i = 1; i <= Math.min(pdf.numPages, 6); i++) {
-        const pg = await pdf.getPage(i);
-        const c = await pg.getTextContent();
-        txt += c.items.map(s => s.str).join(" ") + "\n";
-      }
-      const full = txt.trim().slice(0, 6000);
-      setText(full);
-      setPreview(full.slice(0, 320) + (full.length > 320 ? "…" : ""));
-    } catch (e) { setPreview("Erro ao ler PDF."); }
+  const add = useCallback(async (files) => {
+    const arr = Array.from(files).filter(f => f.type === "application/pdf");
+    if (!arr.length) return;
+    setLoading(true);
+    const results = await Promise.all(arr.map(async f => ({
+      name: f.name,
+      text: await extractPdfText(f).catch(() => ""),
+    })));
+    setPdfs(prev => {
+      const existing = new Set(prev.map(p => p.name));
+      return [...prev, ...results.filter(r => !existing.has(r.name))];
+    });
     setLoading(false);
   }, []);
 
-  const clear = useCallback(() => { setText(""); setName(""); setPreview(""); }, []);
-  return { text, name, preview, loading, load, clear };
+  const remove = useCallback((name) => setPdfs(prev => prev.filter(p => p.name !== name)), []);
+  const clear  = useCallback(() => setPdfs([]), []);
+
+  const combinedText = pdfs.map((p, i) => `[PDF ${i + 1}: ${p.name}]\n${p.text}`).join("\n\n");
+
+  return { pdfs, loading, add, remove, clear, combinedText };
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -697,18 +707,18 @@ function HCard({ h, onView, onDelete }) {
    SIDE SHEET
 ═══════════════════════════════════════════════════════ */
 function SideSheet({ open, onClose, onDone }) {
-  const pdf = usePdf();
+  const pdfs = usePdfs();
   const fileRef = useRef();
   const [drag, setDrag] = useState(false);
   const [form, setForm] = useState({ nome: "", especie: "", raca: "", idade: "", sexo: "", peso: "", queixa: "" });
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
 
-  const ready = pdf.text && form.especie && form.queixa.trim();
+  const ready = pdfs.pdfs.length > 0 && form.especie && form.queixa.trim();
   const set   = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const reset = () => {
-    pdf.clear();
+    pdfs.clear();
     setForm({ nome: "", especie: "", raca: "", idade: "", sexo: "", peso: "", queixa: "" });
     setErro(""); setLoading(false);
   };
@@ -727,13 +737,16 @@ function SideSheet({ open, onClose, onDone }) {
       queixa:  form.queixa.trim(),
     };
 
-    const pdfSafe = pdf.text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, " ").slice(0, 4000);
+    const pdfSafe = pdfs.combinedText
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, " ")
+      .slice(0, 8000);
 
     const prompt = `Você é o LIVUS, sistema de apoio ao diagnóstico laboratorial veterinário.
 
 PACIENTE: Nome: ${paciente.nome} | Espécie: ${paciente.especie} | Raça: ${paciente.raca} | Idade: ${paciente.idade} | Sexo: ${paciente.sexo} | Peso: ${paciente.peso} kg
 QUEIXA: ${paciente.queixa}
-EXAME (${pdf.name}): ${pdfSafe}
+EXAMES LABORATORIAIS:
+${pdfSafe}
 
 Retorne SOMENTE um objeto JSON, sem markdown, sem texto fora do JSON, sem quebras de linha dentro de strings. Use este schema exato:
 {"resumo":"string","interpretacao":"string","diferenciais":[{"n":1,"nome":"string","just":"string"},{"n":2,"nome":"string","just":"string"},{"n":3,"nome":"string","just":"string"}],"complementares":["string","string","string"],"refs":["string","string"]}`;
@@ -822,20 +835,20 @@ Retorne SOMENTE um objeto JSON, sem markdown, sem texto fora do JSON, sem quebra
         <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem 1.75rem", display: "flex", flexDirection: "column", gap: "1.125rem" }}>
 
           {/* Upload */}
-          <SheetSection icon="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" label="Exame laboratorial (PDF)">
+          <SheetSection icon="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" label="Exames laboratoriais (PDF)">
             <div
               onDragOver={e => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
-              onDrop={e => { e.preventDefault(); setDrag(false); pdf.load(e.dataTransfer.files[0]); }}
-              onClick={() => !pdf.name && fileRef.current.click()}
+              onDrop={e => { e.preventDefault(); setDrag(false); pdfs.add(e.dataTransfer.files); }}
+              onClick={() => fileRef.current.click()}
               style={{
                 border: `2px dashed ${drag ? C.p400 : C.border2}`,
-                borderRadius: 12, padding: "2rem 1rem", textAlign: "center",
-                cursor: pdf.name ? "default" : "pointer",
+                borderRadius: 12, padding: "1.5rem 1rem", textAlign: "center",
+                cursor: "pointer",
                 background: drag ? C.p50 : C.surface,
                 transition: "all 0.2s",
               }}>
-              {pdf.loading ? (
+              {pdfs.loading ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: C.p600 }}>
                   <Spin /> Lendo PDF...
                 </div>
@@ -848,40 +861,36 @@ Retorne SOMENTE um objeto JSON, sem markdown, sem texto fora do JSON, sem quebra
                   }}>
                     <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" color={C.p500} size={18} />
                   </div>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 4 }}>Arraste o PDF aqui</div>
-                  <div style={{ fontSize: 12, color: C.ink4 }}>ou clique para selecionar · PDF até 10 MB</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 4 }}>Arraste os PDFs aqui</div>
+                  <div style={{ fontSize: 12, color: C.ink4 }}>ou clique para selecionar · múltiplos PDFs permitidos</div>
                 </>
               )}
             </div>
-            <input ref={fileRef} type="file" accept="application/pdf" style={{ display: "none" }}
-              onChange={e => pdf.load(e.target.files[0])} />
+            <input ref={fileRef} type="file" accept="application/pdf" multiple style={{ display: "none" }}
+              onChange={e => { pdfs.add(e.target.files); e.target.value = ""; }} />
 
-            {pdf.name && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 8, marginTop: "0.75rem",
-                background: C.p50, border: `1px solid ${C.p100}`, borderRadius: 10, padding: "8px 10px",
-              }}>
-                <div style={{
-                  width: 30, height: 30, borderRadius: 8, background: C.p100,
-                  color: C.p700, fontSize: 10, fontWeight: 700,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                }}>PDF</div>
-                <span style={{ flex: 1, fontSize: 12.5, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {pdf.name}
-                </span>
-                <span onClick={() => { pdf.clear(); fileRef.current.value = ""; }}
-                  style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.ink4, fontSize: 16 }}>
-                  ×
-                </span>
+            {pdfs.pdfs.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: "0.75rem" }}>
+                {pdfs.pdfs.map(p => (
+                  <div key={p.name} style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: C.p50, border: `1px solid ${C.p100}`, borderRadius: 10, padding: "8px 10px",
+                  }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 8, background: C.p100,
+                      color: C.p700, fontSize: 10, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>PDF</div>
+                    <span style={{ flex: 1, fontSize: 12.5, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.name}
+                    </span>
+                    <span onClick={() => pdfs.remove(p.name)}
+                      style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: C.ink4, fontSize: 16 }}>
+                      ×
+                    </span>
+                  </div>
+                ))}
               </div>
-            )}
-            {pdf.preview && (
-              <div style={{
-                marginTop: "0.5rem", background: C.white, border: `1px solid ${C.border}`,
-                borderRadius: 8, padding: "7px 10px", fontSize: 11, color: C.ink4,
-                fontFamily: "monospace", lineHeight: 1.5, maxHeight: 65, overflowY: "auto",
-                whiteSpace: "pre-wrap", wordBreak: "break-word",
-              }}>{pdf.preview}</div>
             )}
           </SheetSection>
 
