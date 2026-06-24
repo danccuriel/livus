@@ -4,18 +4,18 @@ import { supabase } from "./supabase.js";
 
 /* ─── PALETA ─── */
 const C = {
-  // Purples
-  p50:  "#f5f0ff",
-  p100: "#ede5ff",
-  p200: "#d9ccff",
-  p300: "#b89dff",
-  p400: "#9b6fff",
-  p500: "#7132F5",
-  p600: "#6020e0",
-  p700: "#4e18b8",
-  p800: "#3c1290",
-  p900: "#28096b",
-  // Cyan accent
+  // Blues (primário — baseado no logo)
+  p50:  "#e8f4fd",
+  p100: "#c8e6f9",
+  p200: "#90caf4",
+  p300: "#42a5e8",
+  p400: "#1e88d8",
+  p500: "#1565c0",
+  p600: "#1153a8",
+  p700: "#0d3f8a",
+  p800: "#092d6b",
+  p900: "#061c4a",
+  // Teal accent (do logo)
   cyan: "#00c8d4",
   cyanLight: "#e0fafb",
   // Orange-red CTA accent
@@ -23,16 +23,16 @@ const C = {
   orangeLight: "#fff0ea",
   // Neutrals
   ink:    "#0d0e14",
-  ink2:   "#23253a",
-  ink3:   "#4a4d6a",
-  ink4:   "#7b7e9a",
-  ink5:   "#a8aac0",
+  ink2:   "#1a2035",
+  ink3:   "#3d4a6a",
+  ink4:   "#6b7a9a",
+  ink5:   "#a0aac0",
   // Surfaces
-  surface:  "#f7f7fc",
-  surface2: "#eeeef7",
+  surface:  "#f5f8fd",
+  surface2: "#eaf0f8",
   white:    "#ffffff",
-  border:   "#e4e4f0",
-  border2:  "#d0d0e8",
+  border:   "#dce8f5",
+  border2:  "#c5d8ee",
 };
 
 /* ─── ESTILOS GLOBAIS ─── */
@@ -114,18 +114,7 @@ const Icon = ({ d, size = 15, color = "currentColor", sw = 1.7 }) => (
 );
 
 const LogoMark = ({ size = 32 }) => (
-  <div style={{
-    width: size, height: size, borderRadius: size * 0.28,
-    background: `linear-gradient(135deg, ${C.p400}, ${C.p700})`,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    boxShadow: "0 3px 12px rgba(113,50,245,0.35)", flexShrink: 0,
-  }}>
-    <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 22 22" fill="none">
-      <path d="M11 2C7.5 2 4.5 4.7 4.5 8.2c0 2.6 1.5 4.8 3.7 6L11 18.5l2.8-4.3c2.2-1.2 3.7-3.4 3.7-6C17.5 4.7 14.5 2 11 2z"
-        stroke="white" strokeWidth="1.4" />
-      <circle cx="11" cy="8.2" r="2.3" fill="white" />
-    </svg>
-  </div>
+  <img src="/logo.svg" alt="Livus" style={{ width: size, height: size, flexShrink: 0, display: "block" }} />
 );
 
 const Spin = ({ color = C.p500, size = 18 }) => (
@@ -338,7 +327,7 @@ function AuthBg({ children }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "2.25rem" }}>
           <LogoMark size={44} />
           <div>
-            <div style={{ fontSize: 22, color: C.white, letterSpacing: "-0.6px", fontWeight: 700 }}>LIVUS</div>
+            <div style={{ fontSize: 22, color: C.white, letterSpacing: "-0.6px", fontWeight: 900 }}>LIVUS</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 1 }}>Diagnóstico veterinário com IA</div>
           </div>
         </div>
@@ -561,7 +550,7 @@ function AppScreen({ user, historico, onLogout, onOpenSheet, onResult, onDelete,
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <LogoMark size={34} />
           <div>
-            <div style={{ fontSize: 18, color: C.ink, fontWeight: 700, letterSpacing: "-0.5px" }}>LIVUS</div>
+            <div style={{ fontSize: 18, color: C.ink, fontWeight: 900, letterSpacing: "-0.5px" }}>LIVUS</div>
             <div style={{ fontSize: 10.5, color: C.ink5, marginTop: 0.5 }}>Diagnóstico veterinário com IA</div>
           </div>
         </div>
@@ -1030,7 +1019,7 @@ function ResultScreen({ entry, onBack }) {
         </button>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
           <LogoMark size={28} />
-          <span style={{ fontSize: 17, color: C.ink, fontWeight: 700, letterSpacing: "-0.4px" }}>LIVUS</span>
+          <span style={{ fontSize: 17, color: C.ink, fontWeight: 900, letterSpacing: "-0.4px" }}>LIVUS</span>
         </div>
       </div>
 
