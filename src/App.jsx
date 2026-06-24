@@ -181,7 +181,8 @@ function usePdfs() {
 ═══════════════════════════════════════════════════════ */
 export default function App() {
   const [pdfjsReady, setPdfjsReady] = useState(!!window.pdfjsLib);
-  const [screen, setScreen]         = useState("login");
+  const [screen, setScreenRaw]      = useState(() => sessionStorage.getItem("livus_screen") || "login");
+  const setScreen = (s) => { sessionStorage.setItem("livus_screen", s); setScreenRaw(s); };
   const [user, setUser]             = useState(null);
   const [historico, setHistorico]   = useState([]);
   const [sheetOpen, setSheetOpen]   = useState(false);

@@ -42,22 +42,18 @@ export default async function handler(req, res) {
     const queryEmbedding = await embed(userContent);
     const refs = await searchKnowledge(queryEmbedding);
 
-    let ragContext = "";
+    let systemPrompt = "Você é o LIVUS, sistema especializado de apoio ao diagnóstico laboratorial veterinário. Responda sempre em português brasileiro. Seja preciso, técnico e baseado em evidências.";
+
     if (refs.length > 0) {
-      ragContext = `\n\nCONHECIMENTO DE REFERÊNCIA (use para embasar a análise):\n` +
+      systemPrompt += "\n\nCONHECIMENTO DE REFERÊNCIA — use estes trechos para embasar e enriquecer sua análise:\n\n" +
         refs.map((r, i) => `[Ref ${i + 1} — ${r.filename}]\n${r.content}`).join("\n\n");
     }
 
-    // Injeta o contexto RAG na mensagem do usuário
-    const enrichedMessages = [{
-      ...messages[0],
-      content: messages[0].content + ragContext,
-    }, ...messages.slice(1)];
-
     const body = {
-      ...req.body,
       model: "claude-sonnet-4-6",
-      messages: enrichedMessages,
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages,
     };
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
