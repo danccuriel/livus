@@ -568,10 +568,12 @@ function AppScreen({ user, historico, onLogout, onOpenSheet, onResult, onDelete,
             {initials(user?.user_metadata?.nome || user?.email)}
           </div>
           <span style={{ fontSize: 13.5, color: C.ink2, fontWeight: 500 }}>{user?.user_metadata?.nome || user?.email}</span>
-          <button onClick={onOpenKnowledge} style={{ ...G.btnSec, fontSize: 12.5, padding: "7px 14px" }}>
-            <Icon d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8v4M12 16h.01" size={13} color={C.ink3} />
-            Base de Conhecimento
-          </button>
+          {user?.email === "danccuriel@gmail.com" && (
+            <button onClick={onOpenKnowledge} style={{ ...G.btnSec, fontSize: 12.5, padding: "7px 14px" }}>
+              <Icon d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8v4M12 16h.01" size={13} color={C.ink3} />
+              Base de Conhecimento
+            </button>
+          )}
           <button onClick={onLogout} style={{ ...G.btnSec, fontSize: 12.5, padding: "7px 14px" }}>Sair</button>
         </div>
       </div>
@@ -1184,6 +1186,11 @@ function KnowledgeScreen({ onBack }) {
 
   useEffect(() => { loadFiles(); }, []);
 
+  const authHeader = async () => {
+    const { data } = await supabase.auth.getSession();
+    return { Authorization: `Bearer ${data.session?.access_token}` };
+  };
+
   const loadFiles = async () => {
     const res = await fetch("/api/knowledge");
     const data = await res.json();
@@ -1208,7 +1215,7 @@ function KnowledgeScreen({ onBack }) {
         }
         const res = await fetch("/api/knowledge", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...await authHeader() },
           body: JSON.stringify({ filename: file.name, text: txt.trim() }),
         });
         const data = await res.json();
@@ -1225,7 +1232,7 @@ function KnowledgeScreen({ onBack }) {
   const remove = async (filename) => {
     await fetch("/api/knowledge", {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...await authHeader() },
       body: JSON.stringify({ filename }),
     });
     setFiles(f => f.filter(x => x.name !== filename));

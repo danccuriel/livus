@@ -1,9 +1,18 @@
 const { createClient } = require("@supabase/supabase-js");
 
+const ADMIN_EMAIL = "danccuriel@gmail.com";
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
 );
+
+async function getAuthEmail(req) {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token) return null;
+  const { data } = await supabase.auth.getUser(token);
+  return data?.user?.email || null;
+}
 
 function chunkText(text, size = 800, overlap = 100) {
   const chunks = [];
@@ -30,6 +39,12 @@ async function embed(text) {
 }
 
 export default async function handler(req, res) {
+  // GET é público (listar arquivos), escrita é só admin
+  if (req.method !== "GET") {
+    const email = await getAuthEmail(req);
+    if (email !== ADMIN_EMAIL) return res.status(403).json({ error: "Acesso negado." });
+  }
+
   if (req.method === "POST") {
     // Upload: recebe { filename, text }
     const { filename, text } = req.body;
