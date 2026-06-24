@@ -279,16 +279,18 @@ export default function App() {
         .dark-input::placeholder { color: rgba(255,255,255,0.3); }
       `}</style>
 
-      {screen === "login"    && <LoginScreen onLogin={onLogin} onGoRegister={() => setScreen("register")} />}
-      {screen === "register" && <RegisterScreen onDone={() => setScreen("login")} onGoLogin={() => setScreen("login")} />}
-      {screen === "app"      && (
+      {screen === "login"     && <LoginScreen onLogin={onLogin} onGoRegister={() => setScreen("register")} />}
+      {screen === "register"  && <RegisterScreen onDone={() => setScreen("login")} onGoLogin={() => setScreen("login")} />}
+      {screen === "app"       && (
         <>
           <AppScreen user={user} historico={historico} onLogout={onLogout}
-            onOpenSheet={() => setSheetOpen(true)} onResult={onResult} onDelete={onDelete} />
+            onOpenSheet={() => setSheetOpen(true)} onResult={onResult} onDelete={onDelete}
+            onOpenKnowledge={() => setScreen("knowledge")} />
           <SideSheet open={sheetOpen} onClose={() => setSheetOpen(false)} onDone={onNew} />
         </>
       )}
-      {screen === "result" && activeResult && (
+      {screen === "knowledge" && <KnowledgeScreen onBack={() => setScreen("app")} />}
+      {screen === "result"    && activeResult && (
         <ResultScreen entry={activeResult} onBack={onBack} />
       )}
     </>
@@ -528,7 +530,7 @@ function LField({ label, dark, children }) {
 /* ═══════════════════════════════════════════════════════
    APP SCREEN
 ═══════════════════════════════════════════════════════ */
-function AppScreen({ user, historico, onLogout, onOpenSheet, onResult, onDelete }) {
+function AppScreen({ user, historico, onLogout, onOpenSheet, onResult, onDelete, onOpenKnowledge }) {
   const [search, setSearch] = useState("");
   const initials = n => (!n || n === "não informado") ? "?" : n.trim().slice(0, 2).toUpperCase();
 
@@ -566,6 +568,10 @@ function AppScreen({ user, historico, onLogout, onOpenSheet, onResult, onDelete 
             {initials(user?.user_metadata?.nome || user?.email)}
           </div>
           <span style={{ fontSize: 13.5, color: C.ink2, fontWeight: 500 }}>{user?.user_metadata?.nome || user?.email}</span>
+          <button onClick={onOpenKnowledge} style={{ ...G.btnSec, fontSize: 12.5, padding: "7px 14px" }}>
+            <Icon d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8v4M12 16h.01" size={13} color={C.ink3} />
+            Base de Conhecimento
+          </button>
           <button onClick={onLogout} style={{ ...G.btnSec, fontSize: 12.5, padding: "7px 14px" }}>Sair</button>
         </div>
       </div>
@@ -1162,6 +1168,198 @@ function RCard({ label, icon, children }) {
         {label}
       </div>
       {children}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   KNOWLEDGE SCREEN
+═══════════════════════════════════════════════════════ */
+function KnowledgeScreen({ onBack }) {
+  const [files, setFiles]     = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [drag, setDrag]       = useState(false);
+  const [msg, setMsg]         = useState("");
+  const fileRef = useRef();
+
+  useEffect(() => { loadFiles(); }, []);
+
+  const loadFiles = async () => {
+    const res = await fetch("/api/knowledge");
+    const data = await res.json();
+    if (data.files) setFiles(data.files);
+  };
+
+  const upload = async (fileList) => {
+    const pdfs = Array.from(fileList).filter(f => f.type === "application/pdf");
+    if (!pdfs.length) return;
+    setUploading(true); setMsg("");
+
+    for (const file of pdfs) {
+      setMsg(`Processando ${file.name}…`);
+      try {
+        const ab = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise;
+        let txt = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const pg = await pdf.getPage(i);
+          const c = await pg.getTextContent();
+          txt += c.items.map(s => s.str).join(" ") + "\n";
+        }
+        const res = await fetch("/api/knowledge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, text: txt.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erro no upload");
+        setMsg(`✓ ${file.name} — ${data.chunks} chunks indexados`);
+      } catch (e) {
+        setMsg(`Erro em ${file.name}: ${e.message}`);
+      }
+    }
+    setUploading(false);
+    loadFiles();
+  };
+
+  const remove = async (filename) => {
+    await fetch("/api/knowledge", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename }),
+    });
+    setFiles(f => f.filter(x => x.name !== filename));
+  };
+
+  return (
+    <div style={{ ...G.screen, flexDirection: "column", background: C.surface }}>
+      {/* Topbar */}
+      <div style={{
+        height: 60, background: C.white, borderBottom: `1px solid ${C.border}`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 2rem", flexShrink: 0, zIndex: 100,
+        boxShadow: "0 1px 0 rgba(113,50,245,0.06)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={onBack} style={{ ...G.btnSec }}>
+            <Icon d="M15 18l-6-6 6-6" sw={2} />
+            Voltar
+          </button>
+          <div style={{ width: 1, height: 24, background: C.border }} />
+          <div style={{ fontSize: 16, color: C.ink, fontWeight: 700 }}>Base de Conhecimento</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <LogoMark size={28} />
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "2.25rem 2rem", maxWidth: 760, margin: "0 auto", width: "100%" }}>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <h1 style={{ fontSize: 24, color: C.ink, fontWeight: 700, letterSpacing: "-0.5px" }}>
+            Materiais de referência
+          </h1>
+          <p style={{ fontSize: 13.5, color: C.ink4, marginTop: 5, lineHeight: 1.6 }}>
+            Suba livros e artigos veterinários. O sistema vai buscar automaticamente os trechos mais relevantes em cada análise.
+          </p>
+        </div>
+
+        {/* Upload zone */}
+        <div
+          onDragOver={e => { e.preventDefault(); setDrag(true); }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={e => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files); }}
+          onClick={() => !uploading && fileRef.current.click()}
+          style={{
+            border: `2px dashed ${drag ? C.p400 : C.border2}`,
+            borderRadius: 16, padding: "2.5rem 1rem", textAlign: "center",
+            cursor: uploading ? "default" : "pointer",
+            background: drag ? C.p50 : C.white,
+            transition: "all 0.2s", marginBottom: "1.5rem",
+          }}>
+          {uploading ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <Spin size={24} />
+              <div style={{ fontSize: 13.5, color: C.p600, fontWeight: 500 }}>{msg}</div>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                width: 52, height: 52, borderRadius: "50%",
+                background: C.p50, border: `1.5px solid ${C.p100}`,
+                display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem",
+              }}>
+                <Icon d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" color={C.p500} size={22} />
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.ink, marginBottom: 5 }}>
+                Arraste PDFs aqui
+              </div>
+              <div style={{ fontSize: 13, color: C.ink4 }}>
+                ou clique para selecionar · múltiplos arquivos · inglês e português
+              </div>
+            </>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="application/pdf" multiple style={{ display: "none" }}
+          onChange={e => { upload(e.target.files); e.target.value = ""; }} />
+
+        {!uploading && msg && (
+          <div style={{
+            padding: "10px 14px", borderRadius: 10, marginBottom: "1.25rem",
+            background: msg.startsWith("✓") ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${msg.startsWith("✓") ? "#86efac" : "#fca5a5"}`,
+            fontSize: 13, color: msg.startsWith("✓") ? "#166534" : "#b91c1c",
+          }}>{msg}</div>
+        )}
+
+        {/* File list */}
+        {files.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "3rem 1rem", color: C.ink4, fontSize: 13.5 }}>
+            Nenhum material indexado ainda.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: C.ink4, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+              {files.length} arquivo{files.length !== 1 ? "s" : ""} indexado{files.length !== 1 ? "s" : ""}
+            </div>
+            {files.map(f => (
+              <div key={f.name} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                background: C.white, border: `1.5px solid ${C.border}`,
+                borderRadius: 12, padding: "1rem 1.25rem",
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, background: C.p50,
+                  border: `1.5px solid ${C.p100}`, color: C.p600, fontSize: 10, fontWeight: 700,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                }}>PDF</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {f.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.ink5, marginTop: 2 }}>{f.chunks} chunks indexados</div>
+                </div>
+                <button onClick={() => remove(f.name)} style={{
+                  ...G.btnSec, fontSize: 12, padding: "6px 13px",
+                  color: "#b91c1c", borderColor: "#fca5a5", flexShrink: 0,
+                }}>
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{
+          marginTop: "2rem", background: C.p50, border: `1.5px solid ${C.p100}`,
+          borderRadius: 12, padding: "1rem 1.25rem", display: "flex", gap: 10,
+        }}>
+          <Icon d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 8v4M12 16h.01" color={C.p500} size={17} sw={1.7} />
+          <p style={{ fontSize: 12.5, color: C.p700, lineHeight: 1.65 }}>
+            Os trechos mais relevantes de cada material são incluídos automaticamente no contexto de cada análise. Quanto mais materiais indexados, mais fundamentadas serão as respostas.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
