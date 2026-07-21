@@ -141,11 +141,13 @@ export default function App() {
 
   // Restore session
   useEffect(() => {
+    const isRecovery = window.location.hash.includes("type=recovery") || window.location.search.includes("type=recovery");
+    if (isRecovery) setScreen("reset-password");
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
-        setScreen(s => (s === "login" || s === "register") ? "app" : s);
-      } else {
+        if (!isRecovery) setScreen(s => (s === "login" || s === "register") ? "app" : s);
+      } else if (!isRecovery) {
         setScreen("login");
       }
       setLoadingSession(false);
@@ -153,6 +155,7 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((ev, session) => {
       if (ev === "SIGNED_OUT") { setUser(null); setScreen("login"); }
       if (ev === "SIGNED_IN") { setUser(session.user); setScreen("app"); }
+      if (ev === "PASSWORD_RECOVERY") { setUser(session.user); setScreen("reset-password"); }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -274,8 +277,10 @@ export default function App() {
         .metric-card-cta { transition: opacity 0.15s, transform 0.15s; }
       `}</style>
 
-      {screen === "login"    && <LoginScreen onLogin={onLogin} onGoRegister={() => setScreen("register")} />}
+      {screen === "login"    && <LoginScreen onLogin={onLogin} onGoRegister={() => setScreen("register")} onGoForgot={() => setScreen("forgot")} />}
       {screen === "register" && <RegisterScreen onDone={() => setScreen("login")} onGoLogin={() => setScreen("login")} />}
+      {screen === "forgot"   && <ForgotPasswordScreen onGoLogin={() => setScreen("login")} />}
+      {screen === "reset-password" && <ResetPasswordScreen onDone={() => setScreen("app")} />}
       {screen === "app" && (
         <>
           <DashboardScreen user={user} historico={historico} onLogout={onLogout}
@@ -343,7 +348,7 @@ function AuthBg({ children }) {
 /* ═══════════════════════════════════════════════════════
    LOGIN SCREEN
 ═══════════════════════════════════════════════════════ */
-function LoginScreen({ onLogin, onGoRegister }) {
+function LoginScreen({ onLogin, onGoRegister, onGoForgot }) {
   const [email, setEmail]     = useState("");
   const [senha, setSenha]     = useState("");
   const [erro, setErro]       = useState("");
@@ -372,6 +377,9 @@ function LoginScreen({ onLogin, onGoRegister }) {
         <input className="dark-input" type="password" style={{ ...G.inputBase, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", color: C.white }}
           value={senha} onChange={e => setSenha(e.target.value)} onKeyDown={e => e.key === "Enter" && handle()} placeholder="••••••••" />
       </LField>
+      <p style={{ textAlign: "right", marginTop: "-0.5rem", marginBottom: "1.25rem" }}>
+        <span onClick={onGoForgot} style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)", cursor: "pointer" }}>Esqueci minha senha</span>
+      </p>
       {erro && <p style={{ fontSize: 12.5, color: "#ff8080", marginBottom: "0.75rem" }}>{erro}</p>}
       <button onClick={handle} disabled={loading} style={{ ...G.btn, width: "100%", marginTop: "0.5rem", opacity: loading ? 0.75 : 1 }}>
         {loading ? <Spin color={C.white} size={16} /> : null}
@@ -381,6 +389,112 @@ function LoginScreen({ onLogin, onGoRegister }) {
         Não tem conta?{" "}
         <span onClick={onGoRegister} style={{ color: C.cyan, cursor: "pointer", fontWeight: 600 }}>Cadastre-se</span>
       </p>
+    </AuthBg>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   FORGOT PASSWORD SCREEN
+═══════════════════════════════════════════════════════ */
+function ForgotPasswordScreen({ onGoLogin }) {
+  const [email, setEmail]     = useState("");
+  const [erro, setErro]       = useState("");
+  const [ok, setOk]           = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handle = async () => {
+    setErro("");
+    if (!email.trim()) { setErro("Informe seu e-mail."); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: window.location.origin,
+    });
+    setLoading(false);
+    if (error) { setErro(error.message); return; }
+    setOk(true);
+  };
+
+  if (ok) return (
+    <AuthBg>
+      <div style={{ textAlign: "center", padding: "1rem 0" }}>
+        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(0,200,212,0.15)", border: "2px solid rgba(0,200,212,0.4)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
+          <Icon d="M20 6L9 17l-5-5" color={C.cyan} size={24} sw={2.5} />
+        </div>
+        <h2 style={{ fontSize: 22, color: C.white, fontWeight: 700, marginBottom: 10 }}>Verifique seu e-mail</h2>
+        <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, marginBottom: "1.75rem" }}>
+          Se {email.trim()} tiver uma conta, enviamos um link para redefinir a senha.
+        </p>
+        <button onClick={onGoLogin} style={{ ...G.btn, width: "100%" }}>Voltar ao login</button>
+      </div>
+    </AuthBg>
+  );
+
+  return (
+    <AuthBg>
+      <h1 style={{ fontSize: 26, color: C.white, fontWeight: 700, marginBottom: 6, letterSpacing: "-0.5px" }}>
+        Esqueci minha senha
+      </h1>
+      <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.5)", marginBottom: "2rem", lineHeight: 1.5 }}>
+        Informe seu e-mail para receber um link de redefinição de senha
+      </p>
+      <LField label="E-MAIL" dark>
+        <input className="dark-input" style={{ ...G.inputBase, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", color: C.white }}
+          value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handle()} placeholder="vet@clinica.com" />
+      </LField>
+      {erro && <p style={{ fontSize: 12.5, color: "#ff8080", marginBottom: "0.75rem" }}>{erro}</p>}
+      <button onClick={handle} disabled={loading} style={{ ...G.btn, width: "100%", marginTop: "0.5rem", opacity: loading ? 0.75 : 1 }}>
+        {loading ? <Spin color={C.white} size={16} /> : null}
+        {loading ? "Enviando…" : "Enviar link de redefinição"}
+      </button>
+      <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: "1.5rem" }}>
+        <span onClick={onGoLogin} style={{ color: C.cyan, cursor: "pointer", fontWeight: 600 }}>Voltar ao login</span>
+      </p>
+    </AuthBg>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESET PASSWORD SCREEN (link vindo do e-mail)
+═══════════════════════════════════════════════════════ */
+function ResetPasswordScreen({ onDone }) {
+  const [senha, setSenha]     = useState("");
+  const [confirma, setConfirma] = useState("");
+  const [erro, setErro]       = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handle = async () => {
+    setErro("");
+    if (senha.length < 6) { setErro("A senha precisa ter ao menos 6 caracteres."); return; }
+    if (senha !== confirma) { setErro("As senhas não coincidem."); return; }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: senha });
+    setLoading(false);
+    if (error) { setErro(error.message); return; }
+    window.history.replaceState(null, "", window.location.pathname);
+    onDone();
+  };
+
+  return (
+    <AuthBg>
+      <h1 style={{ fontSize: 26, color: C.white, fontWeight: 700, marginBottom: 6, letterSpacing: "-0.5px" }}>
+        Definir nova senha
+      </h1>
+      <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.5)", marginBottom: "2rem", lineHeight: 1.5 }}>
+        Escolha uma nova senha para sua conta
+      </p>
+      <LField label="NOVA SENHA" dark>
+        <input className="dark-input" type="password" style={{ ...G.inputBase, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", color: C.white }}
+          value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres" />
+      </LField>
+      <LField label="CONFIRMAR NOVA SENHA" dark>
+        <input className="dark-input" type="password" style={{ ...G.inputBase, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", color: C.white }}
+          value={confirma} onChange={e => setConfirma(e.target.value)} onKeyDown={e => e.key === "Enter" && handle()} placeholder="••••••••" />
+      </LField>
+      {erro && <p style={{ fontSize: 12.5, color: "#ff8080", marginBottom: "0.75rem" }}>{erro}</p>}
+      <button onClick={handle} disabled={loading} style={{ ...G.btn, width: "100%", marginTop: "0.5rem", opacity: loading ? 0.75 : 1 }}>
+        {loading ? <Spin color={C.white} size={16} /> : null}
+        {loading ? "Salvando…" : "Salvar nova senha"}
+      </button>
     </AuthBg>
   );
 }
@@ -403,7 +517,7 @@ function RegisterScreen({ onDone, onGoLogin }) {
     if (senha.length < 6) { setErro("A senha precisa ter ao menos 6 caracteres."); return; }
     if (senha !== confirma) { setErro("As senhas não coincidem."); return; }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password: senha, options: { data: { nome: nome.trim() } } });
+    const { error } = await supabase.auth.signUp({ email, password: senha, options: { data: { nome: nome.trim() }, emailRedirectTo: window.location.origin } });
     setLoading(false);
     if (error) { setErro(error.message); return; }
     setOk(true);
